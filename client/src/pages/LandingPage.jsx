@@ -26,11 +26,7 @@ const LandingPage = ({ onNavigateToLab, onNavigateToStudy, onNavigateHome }) => 
             </span>
             <h1 className="text-4xl md:text-6xl font-serif font-bold mb-6 leading-tight">
               Hệ thống Học liệu <br/>
-              <span className="text-[#6E97D1]">Vật Lý Tương Tác</span>
             </h1>
-            <p className="text-gray-300 text-lg mb-8 max-w-xl leading-relaxed">
-              Truy cập tự do vào kho tàng kiến thức, mô phỏng 3D và phòng thí nghiệm ảo. Công cụ hỗ trợ học tập hiện đại dành cho học sinh THPT.
-            </p>
           </div>
 
           {/* Background Animation */}
