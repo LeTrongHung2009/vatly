@@ -9,10 +9,40 @@ import AIAssistant from './components/AIAssistant'; // 2. Import AI Assistant
 // Bạn có thể thêm bớt sách tại đây mà không cần sửa file StudyPage.jsx
 const BOOKS_DATA = [
   {
-      id: 1,
-      title: "Lực tĩnh điện và định luật Coulomb",
+      id: 11,
+      title: "Định luật Coulomb về tương tác tĩnh điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
       path: "/books/Lực_Tĩnh_Điện_và_Định_Luật_Coulomb.pdf" 
+  },
+  {
+      id: 12,
+      title: "Điện trường",
+      description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
+      path: "/books/Điện_Trường_Hé_Mở_Thế_Giới_Vô_Hình.pdf" 
+  },
+  {
+      id: 15,
+      title: "Năng lượng và ứng dụng của tụ điện",
+      description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
+      path: "/books/Lực_Tĩnh_Điện_và_Định_Luật_Coulomb.pdf" 
+  },
+  {
+      id: 18,
+      title: "Nguồn điện",
+      description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
+      path: "/books/Nguồn_Điện_Và_Bộ_Nguồn.pdf" 
+  },
+  {
+      id: 19,
+      title: "Năng lượng điện. Công suất điện",
+      description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
+      path: "/books/Năng_Lượng_Công_Suất_Điện.pdf" 
+  },
+  {
+      id: 20,
+      title: "Thực hành xác định suất điện động và điện trở trong của pin",
+      description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
+      path: "/books/Bí_Mật_Bên_Trong_Nguồn_Điện.pdf" 
   }
 ];
 
