@@ -48,7 +48,7 @@ const BOOKS_DATA = [
       id: 7,
       title: "Bài 7. Sóng điện từ",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 7.pdf" 
+      path: "/books/Bài 7 .pdf.pdf" 
   },
   {
       id: 8,
