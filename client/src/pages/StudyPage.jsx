@@ -11,7 +11,10 @@ import 'react-pdf/dist/Page/TextLayer.css';
 
 const StudyPage = ({ onBack, books = [] }) => {
   const [currentBook, setCurrentBook] = useState(null);
+  // Mặc định đóng Sidebar
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  // State kiểm tra màn hình Desktop (> 640px)
+  const [isDesktop, setIsDesktop] = useState(true);
 
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -19,36 +22,45 @@ const StudyPage = ({ onBack, books = [] }) => {
   const [inputPage, setInputPage] = useState('');
   const [scale, setScale] = useState(1);
 
+  // Kiểm tra kích thước màn hình để xác định Desktop/Mobile
+  useEffect(() => {
+    const checkScreen = () => {
+      setIsDesktop(window.innerWidth >= 640);
+    };
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
+    return () => window.removeEventListener('resize', checkScreen);
+  }, []);
+
   // --- 1. TÍNH TOÁN KÍCH THƯỚC SLIDE ---
-  // Mặc định tỷ lệ 16:9
   const [bookDimensions, setBookDimensions] = useState({ width: 800, height: 450 });
 
   const calculateSize = useCallback(() => {
     const ASPECT_RATIO = 16 / 9; 
 
-    // Trừ hao Sidebar và Header
-    const paddingX = isSidebarOpen ? 320 : 60; 
-    const paddingY = 140; 
+    // Chỉ trừ hao Sidebar nếu đang mở VÀ đang ở trên Desktop
+    // Trên Mobile sidebar phủ lên trên (overlay) nên không ảnh hưởng width
+    const sidebarWidth = (isSidebarOpen && isDesktop) ? 280 : 0;
+    
+    const paddingX = sidebarWidth + 60; // 60px là lề cơ bản
+    const paddingY = 140; // Header + Footer controls
 
     const maxWidth = window.innerWidth - paddingX;
     const maxHeight = window.innerHeight - paddingY;
 
-    // Tính toán width dựa trên height tối đa
     let height = maxHeight;
     let width = height * ASPECT_RATIO;
 
-    // Nếu width bị tràn màn hình -> Tính lại theo width
     if (width > maxWidth) {
       width = maxWidth;
       height = width / ASPECT_RATIO;
     }
 
-    // Làm tròn số nguyên để tránh lỗi render sub-pixel (gây mờ hoặc lệch 1px)
     width = Math.floor(width);
     height = Math.floor(height);
 
     setBookDimensions({ width, height });
-  }, [isSidebarOpen]);
+  }, [isSidebarOpen, isDesktop]);
 
   useEffect(() => {
     calculateSize();
@@ -68,19 +80,15 @@ const StudyPage = ({ onBack, books = [] }) => {
     setNumPages(null); setCurrentPage(0); setIsPlaying(false); setInputPage(''); setScale(1);
   }, [currentBook]);
 
-  // --- 2. XỬ LÝ PHÍM MŨI TÊN ---
+  // --- 2. XỬ LÝ PHÍM ---
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!bookRef.current || !numPages) return;
       if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
          e.preventDefault();
       }
-
-      if (e.key === 'ArrowRight') {
-        bookRef.current.pageFlip().flipNext();
-      } else if (e.key === 'ArrowLeft') {
-        bookRef.current.pageFlip().flipPrev();
-      }
+      if (e.key === 'ArrowRight') bookRef.current.pageFlip().flipNext();
+      else if (e.key === 'ArrowLeft') bookRef.current.pageFlip().flipPrev();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -124,7 +132,6 @@ const StudyPage = ({ onBack, books = [] }) => {
   return (
     <div className="h-screen flex flex-col bg-[#1a1a1d] overflow-hidden relative text-gray-200 font-sans">
       
-      {/* CSS FORCE FULL SIZE: Ép Canvas của PDF luôn full size */}
       <style>{`
         .react-pdf__Page__canvas {
           width: 100% !important;
@@ -163,28 +170,46 @@ const StudyPage = ({ onBack, books = [] }) => {
 
       <div className="flex flex-1 overflow-hidden relative">
         
-        {/* SIDEBAR */}
+        {/* === MOBILE OVERLAY (Lớp phủ đen khi mở menu trên điện thoại) === */}
+        <div 
+          className={`
+            fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 sm:hidden
+            ${isSidebarOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}
+          `}
+          onClick={() => setSidebarOpen(false)}
+        />
+
+        {/* === SIDEBAR (Responsive Logic) === */}
         <aside 
             className={`
-                absolute top-0 left-0 z-40 h-full bg-white text-gray-800 border-r border-[#0D205C]/10 
-                transition-all duration-300 ease-in-out shadow-2xl flex flex-col
+                bg-white text-gray-800 border-[#0D205C]/10 flex flex-col transition-all duration-300 ease-in-out shadow-2xl z-50
+
+                /* MOBILE: Fixed Bottom Sheet (Hiện từ dưới lên) */
+                fixed bottom-0 left-0 right-0 h-[60vh] rounded-t-2xl border-t
+                ${isSidebarOpen ? 'translate-y-0' : 'translate-y-full'}
+
+                /* DESKTOP: Absolute Left Sidebar (Hiện từ trái sang) */
+                sm:absolute sm:top-0 sm:left-0 sm:h-full sm:w-[280px] sm:rounded-none sm:border-r sm:border-t-0 sm:bottom-auto sm:translate-y-0
+                ${isSidebarOpen ? 'sm:translate-x-0' : 'sm:-translate-x-full'}
             `}
-            style={{ 
-                width: isSidebarOpen ? '280px' : '0px',
-                transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-                opacity: isSidebarOpen ? 1 : 0,
-            }}
         >
-          <div className="p-4 bg-[#F7F2EE]/50 border-b border-[#0D205C]/5 flex justify-between items-center shrink-0 min-w-[280px]">
-            <h3 className="font-bold text-[#0D205C] text-xs uppercase tracking-wider">Danh mục</h3>
+          <div className="p-4 bg-[#F7F2EE]/50 border-b border-[#0D205C]/5 flex justify-between items-center shrink-0">
+            <h3 className="font-bold text-[#0D205C] text-xs uppercase tracking-wider">Danh mục tài liệu</h3>
             <span className="text-[10px] text-gray-500 bg-white px-2 py-0.5 rounded border shadow-sm">{books.length} file</span>
+            {/* Nút đóng cho Mobile */}
+            <button onClick={() => setSidebarOpen(false)} className="sm:hidden p-1 text-gray-400 hover:text-red-500">
+               <X size={20} />
+            </button>
           </div>
-          <div className="overflow-y-auto flex-1 p-2 space-y-1 pb-20 min-w-[280px]">
+          <div className="overflow-y-auto flex-1 p-2 space-y-1 pb-10">
             {books.length > 0 ? (
               books.map((book) => (
                 <button
                   key={book.id}
-                  onClick={() => setCurrentBook(book)}
+                  onClick={() => {
+                    setCurrentBook(book);
+                    if (!isDesktop) setSidebarOpen(false); // Đóng menu sau khi chọn trên mobile
+                  }}
                   className={`w-full text-left p-3 rounded-lg text-sm flex items-start gap-3 transition group border border-transparent ${currentBook?.id === book.id ? 'bg-[#0D205C] text-white shadow-md border-[#0D205C]' : 'text-gray-600 hover:bg-[#6E97D1]/10 hover:border-[#6E97D1]/20'}`}
                 >
                   <FileText size={18} className={`mt-0.5 flex-shrink-0 ${currentBook?.id === book.id ? 'text-[#6E97D1]' : 'text-gray-400 group-hover:text-[#0D205C]'}`} />
@@ -200,7 +225,10 @@ const StudyPage = ({ onBack, books = [] }) => {
         {/* MAIN VIEWER */}
         <main 
             className="flex-1 bg-[#2e2e33] relative w-full h-full flex flex-col items-center justify-center overflow-hidden transition-all duration-300"
-            style={{ marginLeft: isSidebarOpen ? '280px' : '0' }}
+            style={{ 
+              // Chỉ đẩy nội dung sang phải khi ở Desktop
+              marginLeft: (isSidebarOpen && isDesktop) ? '280px' : '0' 
+            }}
         >
             {currentBook ? (
               <>
@@ -210,7 +238,6 @@ const StudyPage = ({ onBack, books = [] }) => {
                         transform: `scale(${scale})`, 
                         transition: 'transform 0.2s ease-out',
                         transformOrigin: 'center center',
-                        // QUAN TRỌNG: Cố định kích thước container ngoài cùng
                         width: bookDimensions.width,
                         height: bookDimensions.height
                     }}
@@ -226,43 +253,30 @@ const StudyPage = ({ onBack, books = [] }) => {
                           <HTMLFlipBook
                             width={bookDimensions.width} 
                             height={bookDimensions.height} 
-                            
                             usePortrait={true} 
                             showCover={false} 
-
-                            size="fixed" // Bắt buộc dùng fixed để không bị co giãn lung tung
-                            minWidth={300}
-                            maxWidth={1600}
-                            minHeight={200}
-                            maxHeight={1000}
-                            
+                            size="fixed"
+                            minWidth={300} maxWidth={1600} minHeight={200} maxHeight={1000}
                             maxShadowOpacity={0.3} 
                             drawShadow={true}
                             flippingTime={800} 
-                            
                             ref={bookRef}
                             onFlip={onFlip}
                             className="shadow-2xl outline-none"
                             style={{ margin: '0 auto' }}
                           >
                             {Array.from(new Array(numPages), (el, index) => (
-                              // Wrapper page: Đảm bảo width/height = 100%
                               <div key={`page_${index + 1}`} className="bg-white overflow-hidden rounded-sm w-full h-full">
                                 <div className="w-full h-full flex justify-center items-center relative">
                                     <Page 
-                                        // QUAN TRỌNG: Key thay đổi khi kích thước thay đổi để buộc render lại
                                         key={`page_content_${index + 1}_${bookDimensions.width}`}
                                         pageNumber={index + 1} 
-                                        
-                                        // QUAN TRỌNG: Truyền CẢ width và height để ép react-pdf render đúng khung
                                         width={bookDimensions.width} 
                                         height={bookDimensions.height}
-                                        
                                         renderTextLayer={false}      
                                         renderAnnotationLayer={false}
                                         className="pointer-events-none"
                                     />
-                                    {/* Số trang */}
                                     <div className="absolute bottom-2 right-4 text-[10px] text-gray-500 font-mono select-none bg-white/90 px-2 py-0.5 rounded-full border border-gray-100 shadow-sm z-10">
                                         {index + 1} / {numPages}
                                     </div>
