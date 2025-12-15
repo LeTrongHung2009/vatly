@@ -6,7 +6,7 @@ import {
   Undo, Copy, Clipboard, Disc, Grip,
   Turtle, Bug, Calculator, Crosshair, 
   TrendingUp, Divide, Tv, Lightbulb, Waves,
-  Maximize2 // Icon phóng to
+  Maximize2 
 } from 'lucide-react';
 
 // --- DATA: TOOLBOX ---
@@ -76,14 +76,14 @@ const PhysicsSandboxV16 = () => {
   const [debugMode, setDebugMode] = useState(false);
 
   // UI
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const requestRef = useRef();
   
-  // Ref State (Fix Ghosting)
+  // Ref State
   const stateRef = useRef({ entities, view, time, isPlaying, slowFactor, canvasSize, debugMode, selectedId });
   useEffect(() => { stateRef.current = { entities, view, time, isPlaying, slowFactor, canvasSize, debugMode, selectedId }; }, [entities, view, time, isPlaying, slowFactor, canvasSize, debugMode, selectedId]);
 
@@ -94,14 +94,14 @@ const PhysicsSandboxV16 = () => {
   // --- AUTO RESIZE ---
   useLayoutEffect(() => {
     const updateSize = () => { if (containerRef.current) setCanvasSize({ w: containerRef.current.clientWidth, h: containerRef.current.clientHeight }); };
-    window.addEventListener('resize', updateSize); updateSize();
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
+    window.addEventListener('resize', updateSize); 
+    const timeout = setTimeout(updateSize, 310); updateSize();
+    return () => { window.removeEventListener('resize', updateSize); clearTimeout(timeout); };
+  }, [sidebarOpen]); 
 
   // --- COORDINATES ---
   const worldToScreen = (wx, wy, cSize, v) => ({ x: cSize.w/2 + v.x + wx*v.scale, y: cSize.h/2 + v.y - wy*v.scale });
-  const screenToWorld = (sx, sy, cSize, v) => ({ x: (sx - cSize.w/2 - v.x)/v.scale, y: -(sy - cSize.h/2 - v.y)/v.scale });
-
+  
   // --- PARSE EQUATION ---
   const evaluateEquation = (eqStr, t, x = 0) => {
       try {
@@ -111,6 +111,52 @@ const PhysicsSandboxV16 = () => {
           return new Function('t', 'x', 'r', `return ${safeStr}`)(t, x, x); 
       } catch (e) { return 0; }
   };
+
+  // --- ZOOM HANDLING (NEW FEATURE) ---
+  const handleZoom = (zoomIn, manualCoords = null) => {
+      const { view, canvasSize } = stateRef.current;
+      const scaleFactor = 1.2;
+      // Nếu có toạ độ chuột (manualCoords) thì dùng, nếu không thì dùng tâm màn hình
+      const centerX = manualCoords ? manualCoords.x : canvasSize.w / 2;
+      const centerY = manualCoords ? manualCoords.y : canvasSize.h / 2;
+
+      const newScale = zoomIn 
+        ? Math.min(500, view.scale * scaleFactor) 
+        : Math.max(5, view.scale / scaleFactor);
+      
+      // Tính toán toạ độ thế giới tại điểm zoom trước khi thay đổi scale
+      // World = (Screen - CenterOffset - ViewOffset) / Scale
+      const worldX = (centerX - canvasSize.w / 2 - view.x) / view.scale;
+      const worldY = -(centerY - canvasSize.h / 2 - view.y) / view.scale;
+
+      // Tính lại ViewOffset mới để giữ điểm thế giới nằm im dưới con trỏ
+      // NewViewOffset = Screen - CenterOffset - (World * NewScale)
+      const newViewX = centerX - canvasSize.w / 2 - worldX * newScale;
+      const newViewY = centerY - canvasSize.h / 2 + worldY * newScale;
+
+      setView({ ...view, scale: newScale, x: newViewX, y: newViewY });
+  };
+
+  // Đăng ký sự kiện Wheel trực tiếp vào Canvas để ngăn chặn scroll trang
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onWheel = (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Xác định hướng zoom
+        const isZoomIn = e.deltaY < 0;
+        handleZoom(isZoomIn, { x: mouseX, y: mouseY });
+    };
+
+    // { passive: false } là bắt buộc để dùng e.preventDefault() chặn scroll trang
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, []);
 
   // --- GAME LOOP ---
   const animate = useCallback(() => {
@@ -125,7 +171,9 @@ const PhysicsSandboxV16 = () => {
   // --- SHORTCUTS ---
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Delete' && selectedId) { saveHistory(); setEntities(p => p.filter(e => e.id !== selectedId)); setSelectedId(null); }
+      if (e.key === 'Delete' && selectedId) { 
+        saveHistory(); setEntities(p => p.filter(e => e.id !== selectedId)); setSelectedId(null); setInspectorOpen(false); 
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') handleUndo();
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedId) { const e = entities.find(i => i.id === selectedId); if(e) setClipboard(e); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'v' && clipboard) { saveHistory(); setEntities(p => [...p, { ...clipboard, id: Date.now(), x: clipboard.x+1, y: clipboard.y-1 }]); }
@@ -149,12 +197,14 @@ const PhysicsSandboxV16 = () => {
     }
 
     if (clicked) {
-        saveHistory(); setSelectedId(clicked.id);
+        saveHistory(); 
+        setSelectedId(clicked.id);
+        setInspectorOpen(true); 
         dragRef.current = { isDragging: true, targetId: clicked.id, startX: x, startY: y, initialObjX: clicked.x, initialObjY: clicked.y };
-        setInspectorOpen(true);
     } else {
         panRef.current = { isPanning: true, startX: x, startY: y, initialViewX: view.x, initialViewY: view.y };
         setSelectedId(null);
+        setInspectorOpen(false); 
     }
   };
 
@@ -177,7 +227,7 @@ const PhysicsSandboxV16 = () => {
     dragRef.current.isDragging = false; panRef.current.isPanning = false;
   };
 
-  // --- DRAWING ENGINE ---
+  // --- DRAWING ENGINE (GIỮ NGUYÊN) ---
   const draw = () => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -193,8 +243,6 @@ const PhysicsSandboxV16 = () => {
         const pos = worldToScreen(ent.x, ent.y, canvasSize, view);
         ctx.translate(pos.x, pos.y);
         
-        if (debugMode) { ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fillStyle='red'; ctx.fill(); }
-
         try {
            switch(ent.type) {
                case 'SPRING_OSC': drawSpring(ctx, ent, time, view.scale); break;
@@ -222,35 +270,15 @@ const PhysicsSandboxV16 = () => {
     }
   };
 
-  // --- RENDERERS ---
-
-  // 1. WAVE SOURCE
+  // --- RENDERERS (GIỮ NGUYÊN) ---
   const drawWave = (ctx, ent, t, s) => {
       const { mode, f, v, A, eq, color, showGraph, graphScale } = ent.params;
-      
       ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0,0, 6, 0, Math.PI*2); ctx.fill();
       ctx.strokeStyle = color; ctx.lineWidth = 2;
-      
-      if (mode === 'equation') {
-          ctx.beginPath(); ctx.arc(0,0, s*2 + (t*20)%50, 0, Math.PI*2); ctx.stroke();
-      } else {
-          const lambda = v / f;
-          for (let k = 0; k < 10; k++) {
-              const r = ((v * t) % lambda) + k * lambda;
-              if (r > 15) continue;
-              ctx.globalAlpha = Math.max(0, 1 - r/10); 
-              ctx.beginPath(); ctx.arc(0, 0, r * s, 0, Math.PI*2); ctx.stroke();
-          }
-          ctx.globalAlpha = 1;
-      }
-
-      if (showGraph) {
-          let val = (mode === 'equation') ? evaluateEquation(eq, t, 0) : A * Math.cos(2 * Math.PI * f * t);
-          drawOscillationGraph(ctx, t, val, s, color, 'u(0,t)', graphScale || 1);
-      }
+      if (mode === 'equation') { ctx.beginPath(); ctx.arc(0,0, s*2 + (t*20)%50, 0, Math.PI*2); ctx.stroke(); } 
+      else { const lambda = v / f; for (let k = 0; k < 10; k++) { const r = ((v * t) % lambda) + k * lambda; if (r > 15) continue; ctx.globalAlpha = Math.max(0, 1 - r/10); ctx.beginPath(); ctx.arc(0, 0, r * s, 0, Math.PI*2); ctx.stroke(); } ctx.globalAlpha = 1; }
+      if (showGraph) { let val = (mode === 'equation') ? evaluateEquation(eq, t, 0) : A * Math.cos(2 * Math.PI * f * t); drawOscillationGraph(ctx, t, val, s, color, 'u(0,t)', graphScale || 1); }
   };
-
-  // 2. STANDING WAVE
   const drawStandingWave = (ctx, ent, t, s) => {
       const { mode, f, A, length, loops, eq, color, showGraph, graphScale } = ent.params;
       const L_px = length * s;
@@ -267,72 +295,19 @@ const PhysicsSandboxV16 = () => {
       }
       ctx.stroke();
       ctx.fillStyle = '#333'; ctx.fillRect(startX - 3, -6, 6, 12); ctx.fillRect(startX + L_px - 3, -6, 6, 12);
-
-      if (showGraph) {
-          const x_belly = length / (2 * (loops || 1));
-          let val = (mode === 'equation') ? evaluateEquation(eq, t, x_belly) : 2 * A * Math.sin((loops * Math.PI / length) * x_belly) * Math.cos(2 * Math.PI * f * t);
-          drawOscillationGraph(ctx, t, val, s, color, `u(${x_belly.toFixed(1)},t)`, graphScale || 1);
-      }
+      if (showGraph) { const x_belly = length / (2 * (loops || 1)); let val = (mode === 'equation') ? evaluateEquation(eq, t, x_belly) : 2 * A * Math.sin((loops * Math.PI / length) * x_belly) * Math.cos(2 * Math.PI * f * t); drawOscillationGraph(ctx, t, val, s, color, `u(${x_belly.toFixed(1)},t)`, graphScale || 1); }
   };
-
-  // 3. GRAPH HELPER (ZOOMABLE)
   const drawOscillationGraph = (ctx, t, val, s, color, label, scale = 1) => {
-      ctx.save(); 
-      // Dời vị trí và scale
-      const boxW = 120 * scale;
-      const boxH = 80 * scale;
-      ctx.translate(s * 1.5, -s * 1.5); 
-      
-      // Hộp nền
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; 
-      ctx.shadowColor = 'rgba(0,0,0,0.1)'; ctx.shadowBlur = 5;
-      ctx.fillRect(0, -boxH + 20, boxW, boxH); // Anchor bottom-left
-      ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; ctx.strokeRect(0, -boxH + 20, boxW, boxH);
-
-      // Trục toạ độ
-      const midY = -boxH + 20 + boxH/2;
-      ctx.beginPath(); ctx.strokeStyle = '#94a3b8';
-      ctx.moveTo(0, midY); ctx.lineTo(boxW, midY); // Trục t
-      ctx.moveTo(5, -boxH + 20); ctx.lineTo(5, 20); // Trục u
+      ctx.save(); const boxW = 120 * scale; const boxH = 80 * scale; ctx.translate(s * 1.5, -s * 1.5); 
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.shadowColor = 'rgba(0,0,0,0.1)'; ctx.shadowBlur = 5; ctx.fillRect(0, -boxH + 20, boxW, boxH); ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; ctx.strokeRect(0, -boxH + 20, boxW, boxH);
+      const midY = -boxH + 20 + boxH/2; ctx.beginPath(); ctx.strokeStyle = '#94a3b8'; ctx.moveTo(0, midY); ctx.lineTo(boxW, midY); ctx.moveTo(5, -boxH + 20); ctx.lineTo(5, 20); ctx.stroke();
+      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2 * scale; const points = 60;
+      for(let i = 0; i < points; i++) { const dt = i * 0.05; const plotX = boxW - i * (2 * scale); const plotY = midY - (val * Math.cos(2*i*0.2)) * (5 * scale); if (i===0) ctx.moveTo(plotX, midY - val * (5*scale)); else ctx.lineTo(plotX, plotY); }
       ctx.stroke();
-
-      // Vẽ đường
-      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2 * scale; // Nét dày hơn khi zoom
-      const points = 60;
-      for(let i = 0; i < points; i++) {
-          const dt = i * 0.05;
-          // Giả lập
-          const plotX = boxW - i * (2 * scale);
-          const plotY = midY - (val * Math.cos(2*i*0.2)) * (5 * scale);
-          if (i===0) ctx.moveTo(plotX, midY - val * (5*scale)); else ctx.lineTo(plotX, plotY);
-      }
-      ctx.stroke();
-
-      // Text
-      ctx.fillStyle = '#475569'; ctx.font = `${10 * scale}px monospace`; 
-      ctx.fillText(label, 10 * scale, midY - (boxH/2 - 15*scale));
-      
-      ctx.restore();
+      ctx.fillStyle = '#475569'; ctx.font = `${10 * scale}px monospace`; ctx.fillText(label, 10 * scale, midY - (boxH/2 - 15*scale)); ctx.restore();
   };
-
-  // 4. OTHER RENDERERS
-  const drawSpring = (ctx, ent, t, s) => { 
-      const { mode, k, m, A, phi, eq, showGraph, graphScale, color } = ent.params; 
-      let x = mode==='equation' ? evaluateEquation(eq, t) : A * Math.cos(Math.sqrt(k/m)*t + phi); 
-      ctx.fillStyle='#64748B'; ctx.fillRect(-10,-s*3,20,10); ctx.beginPath(); ctx.moveTo(0,-s*3); const len=s*3+x*s; 
-      for(let i=0;i<=10;i++) ctx.lineTo(i%2?5:-5, -s*3+(i/10)*len); ctx.stroke(); 
-      ctx.fillStyle=ent.color; ctx.beginPath(); ctx.arc(0,x*s,s*0.4,0,Math.PI*2); ctx.fill(); 
-      if(showGraph) drawOscillationGraph(ctx, t, x, s, color, 'x(t)', graphScale || 1); 
-  };
-  const drawPendulum = (ctx, ent, t, s) => { 
-      const { mode, l, alpha0, eq, showGraph, graphScale, color } = ent.params; 
-      let a = mode==='equation' ? evaluateEquation(eq, t)*(Math.PI/180) : alpha0*(Math.PI/180)*Math.cos(Math.sqrt(9.8/l)*t); 
-      const bx=l*s*Math.sin(a), by=l*s*Math.cos(a); 
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(bx,by); ctx.stroke(); 
-      ctx.beginPath(); ctx.arc(bx,by,s*0.3,0,Math.PI*2); ctx.fillStyle=ent.color; ctx.fill(); 
-      if(showGraph) drawOscillationGraph(ctx, t, a, s, color, 'α(t)', graphScale || 1); 
-  };
-  // (Giữ các hàm Light, Slit, Screen, Charge... như V15)
+  const drawSpring = (ctx, ent, t, s) => { const { mode, k, m, A, phi, eq, showGraph, graphScale, color } = ent.params; let x = mode==='equation' ? evaluateEquation(eq, t) : A * Math.cos(Math.sqrt(k/m)*t + phi); ctx.fillStyle='#64748B'; ctx.fillRect(-10,-s*3,20,10); ctx.beginPath(); ctx.moveTo(0,-s*3); const len=s*3+x*s; for(let i=0;i<=10;i++) ctx.lineTo(i%2?5:-5, -s*3+(i/10)*len); ctx.stroke(); ctx.fillStyle=ent.color; ctx.beginPath(); ctx.arc(0,x*s,s*0.4,0,Math.PI*2); ctx.fill(); if(showGraph) drawOscillationGraph(ctx, t, x, s, color, 'x(t)', graphScale || 1); };
+  const drawPendulum = (ctx, ent, t, s) => { const { mode, l, alpha0, eq, showGraph, graphScale, color } = ent.params; let a = mode==='equation' ? evaluateEquation(eq, t)*(Math.PI/180) : alpha0*(Math.PI/180)*Math.cos(Math.sqrt(9.8/l)*t); const bx=l*s*Math.sin(a), by=l*s*Math.cos(a); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(bx,by); ctx.stroke(); ctx.beginPath(); ctx.arc(bx,by,s*0.3,0,Math.PI*2); ctx.fillStyle=ent.color; ctx.fill(); if(showGraph) drawOscillationGraph(ctx, t, a, s, color, 'α(t)', graphScale || 1); };
   const drawLightSource = (ctx, ent, s) => { const {lambda}=ent.params; ctx.fillStyle=ent.color; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=ent.color; ctx.setLineDash([5,5]); ctx.beginPath(); ctx.moveTo(8,0); ctx.lineTo(s*10,0); ctx.stroke(); ctx.setLineDash([]); ctx.fillText(`λ=${lambda}µm`,0,-15); };
   const drawDoubleSlit = (ctx, ent, s) => { const {a,width}=ent.params; const gap=(a/1000)*s*100, h=s*width; ctx.fillStyle=ent.color; ctx.fillRect(-2,-h/2,4,(h-gap)/2); ctx.fillRect(-2,gap/2,4,(h-gap)/2); ctx.fillRect(-2,-gap/6,4,gap/3); };
   const drawScreen = (ctx, ent, s, allEnts) => { const {height}=ent.params, h=height*s; ctx.fillStyle=ent.color; ctx.fillRect(-2,-h/2,4,h); const slit=allEnts.find(e=>e.type==='DOUBLE_SLIT'), light=allEnts.find(e=>e.type==='LIGHT_SOURCE'); if(slit&&light&&ent.x>slit.x){ const D=Math.abs(ent.x-slit.x), a=slit.params.a*1e-3, lam=light.params.lambda*1e-6, i=(lam*D)/a, pat=20; for(let y=-h/2; y<h/2; y++){ const I=Math.pow(Math.cos((Math.PI*(y/s))/i),2); ctx.fillStyle=light.color; ctx.globalAlpha=I; ctx.fillRect(0,y,pat,1); } ctx.globalAlpha=1; } };
@@ -348,69 +323,97 @@ const PhysicsSandboxV16 = () => {
 
   return (
     <div className="flex w-full h-full bg-slate-50 overflow-hidden font-sans text-slate-800 relative select-none">
-      <div className={`absolute inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 border-r flex flex-col`}>
-         <div className="h-14 bg-[#0D205C] text-white flex items-center justify-between px-4 shrink-0"><span className="font-bold flex items-center gap-2"><Settings size={18}/> Toolbox</span><button onClick={() => setSidebarOpen(false)} className="md:hidden"><X size={18}/></button></div>
-         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-             {TOOLBOX.map(g => (
-                 <div key={g.id}><h3 className={`font-bold text-xs uppercase mb-3 px-2 py-1 rounded w-fit ${g.color}`}>{g.title}</h3>
-                     <div className="grid grid-cols-2 gap-2">{g.items.map((it, idx) => (
-                         <button key={idx} onClick={() => { saveHistory(); setEntities(p => [...p, { ...it, id:Date.now(), x:0, y:0 }]); }} className="flex flex-col items-center justify-center p-3 bg-white border-2 border-slate-100 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"><div style={{color: it.color}} className="mb-1">{it.icon}</div><span className="text-[11px] font-bold text-slate-600 text-center">{it.label}</span></button>
-                     ))}</div>
-                 </div>
-             ))}
-         </div>
+      
+      {/* SIDEBAR CONTAINER (TOOLBOX) */}
+      <div className={`
+          z-50 bg-white shadow-[0_-5px_15px_rgba(0,0,0,0.1)] 
+          flex flex-col transition-all duration-300 ease-in-out
+          fixed bottom-0 left-0 right-0 w-full h-[60vh] rounded-t-2xl border-t border-slate-200
+          transform ${sidebarOpen ? 'translate-y-0' : 'translate-y-full'}
+          md:relative md:inset-auto md:h-full md:rounded-none md:border-t-0 md:border-r md:shadow-xl md:transform-none 
+          ${sidebarOpen ? 'md:w-72' : 'md:w-0'} md:overflow-hidden
+      `}>
+          <div className="w-full h-full md:w-72 flex flex-col">
+             <div className="h-14 bg-[#0D205C] text-white flex items-center justify-between px-4 shrink-0 rounded-t-2xl md:rounded-none">
+                 <span className="font-bold flex items-center gap-2"><Settings size={18}/> Toolbox</span>
+                 <button onClick={() => setSidebarOpen(false)} className="hover:bg-white/10 p-1 rounded transition-colors"><X size={18}/></button>
+             </div>
+             <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                 {TOOLBOX.map(g => (
+                     <div key={g.id}><h3 className={`font-bold text-xs uppercase mb-3 px-2 py-1 rounded w-fit ${g.color}`}>{g.title}</h3>
+                         <div className="grid grid-cols-2 gap-2">{g.items.map((it, idx) => (
+                             <button key={idx} onClick={() => { saveHistory(); setEntities(p => [...p, { ...it, id:Date.now(), x:0, y:0 }]); }} className="flex flex-col items-center justify-center p-3 bg-white border-2 border-slate-100 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"><div style={{color: it.color}} className="mb-1">{it.icon}</div><span className="text-[11px] font-bold text-slate-600 text-center">{it.label}</span></button>
+                         ))}</div>
+                     </div>
+                 ))}
+             </div>
+          </div>
       </div>
-      <div className="flex-1 flex flex-col relative h-full">
+
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col relative h-full min-w-0">
          <div className="h-14 bg-white border-b flex items-center justify-between px-4 z-40 shadow-sm shrink-0">
              <div className="flex items-center gap-2">
-                 <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden p-2"><Menu size={20}/></button>
+                 <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`p-2 rounded-md transition-colors ${sidebarOpen ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}><Menu size={20}/></button>
                  <div className="flex bg-gray-100 rounded-lg p-1 items-center gap-1">
                      <button onClick={()=>setIsPlaying(!isPlaying)} className={`p-1.5 rounded-md ${isPlaying?'bg-white text-blue-600 shadow-sm':'text-gray-500'}`}>{isPlaying?<Pause size={18}/>:<Play size={18}/>}</button>
                      <button onClick={()=>{setTime(0);}} className="p-1.5 rounded-md text-gray-500 hover:text-red-500"><RefreshCw size={18}/></button>
                      <div className="flex items-center pl-2 ml-1 border-l border-gray-300 gap-2"><Turtle size={16} className="text-gray-500"/><input type="number" min="1" step="0.1" value={slowFactor} onChange={(e)=>{ let v = parseFloat(e.target.value); if(v<1) v=1; setSlowFactor(v); }} className="w-14 h-6 text-xs font-mono font-bold text-center border rounded focus:ring-1 outline-none"/></div>
                  </div>
              </div>
-             <div className="flex gap-2"><button onClick={() => setView(p=>({...p, scale: Math.max(10, p.scale-5)}))} className="p-2 text-gray-500"><ZoomOut size={18}/></button><button onClick={() => setView(p=>({...p, scale: Math.min(200, p.scale+5)}))} className="p-2 text-gray-500"><ZoomIn size={18}/></button><button onClick={() => setInspectorOpen(!inspectorOpen)} className={`p-2 rounded ${inspectorOpen?'bg-blue-50 text-blue-600':'text-gray-500'}`}><Settings size={18}/></button></div>
+             {/* --- UPDATED ZOOM BUTTONS --- */}
+             <div className="flex gap-2">
+                 <button onClick={() => handleZoom(false)} className="p-2 text-gray-500 hover:bg-gray-100 rounded"><ZoomOut size={18}/></button>
+                 <button onClick={() => handleZoom(true)} className="p-2 text-gray-500 hover:bg-gray-100 rounded"><ZoomIn size={18}/></button>
+                 <button onClick={() => setInspectorOpen(!inspectorOpen)} className={`p-2 rounded ${inspectorOpen?'bg-blue-50 text-blue-600':'text-gray-500'}`}><Settings size={18}/></button>
+             </div>
          </div>
          <div ref={containerRef} className="flex-1 relative overflow-hidden bg-[#f8fafc] touch-none">
              <canvas ref={canvasRef} width={canvasSize.w} height={canvasSize.h} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} className="block"/>
-             {inspectorOpen && (
-                 <div className="absolute top-4 right-4 w-80 max-h-[85%] bg-white/95 backdrop-blur shadow-xl rounded-2xl border border-gray-100 overflow-y-auto flex flex-col animate-in slide-in-from-right duration-300">
-                     {selectedId && entities.find(e=>e.id===selectedId) ? (
-                         (() => {
-                            const ent = entities.find(e=>e.id===selectedId);
-                            return (
-                             <>
-                                 <div className="p-3 border-b bg-gray-50 flex justify-between items-center sticky top-0"><h4 className="font-bold text-[#0D205C] flex items-center gap-2"><Grip size={16}/> {ent.label}</h4><button onClick={()=>{saveHistory(); setEntities(p=>p.filter(e=>e.id!==selectedId));}} className="text-red-500 bg-white border p-1.5 rounded"><Trash2 size={16}/></button></div>
-                                 <div className="p-4 space-y-4">
-                                     {ent.params.hasOwnProperty('showGraph') && (
-                                         <div className="bg-indigo-50 p-2 rounded border border-indigo-100 space-y-2">
-                                             <div className="flex items-center justify-between">
-                                                 <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs"><TrendingUp size={16}/> Hiện đồ thị</div>
-                                                 <input type="checkbox" checked={ent.params.showGraph} onChange={(e)=>updateParam(ent.id, 'showGraph', e.target.checked)} className="accent-indigo-600"/>
-                                             </div>
-                                             {ent.params.showGraph && (
-                                                 <div className="flex items-center gap-2 border-t border-indigo-200 pt-2">
-                                                     <Maximize2 size={12} className="text-indigo-500"/>
-                                                     <span className="text-[10px] text-indigo-600 font-bold">Kích thước:</span>
-                                                     <input type="range" min="1" max="3" step="0.1" value={ent.params.graphScale || 1} onChange={(e)=>updateParam(ent.id, 'graphScale', parseFloat(e.target.value))} className="flex-1 h-1 bg-indigo-200 rounded accent-indigo-600"/>
-                                                     <span className="text-[10px] font-mono w-4">{ent.params.graphScale || 1}x</span>
-                                                 </div>
-                                             )}
+             
+             {/* INSPECTOR PANEL */}
+             {inspectorOpen && selectedId && (
+                 <div className={`
+                    bg-white/95 backdrop-blur shadow-xl border-gray-100 overflow-y-auto flex flex-col z-50
+                    fixed bottom-0 left-0 right-0 w-full max-h-[60vh] rounded-t-2xl border-t
+                    animate-in slide-in-from-bottom duration-300
+                    md:absolute md:top-4 md:right-4 md:w-80 md:max-h-[85%] md:rounded-2xl md:border md:bottom-auto md:left-auto
+                    md:animate-in md:slide-in-from-right
+                 `}>
+                     {(() => {
+                        const ent = entities.find(e=>e.id===selectedId);
+                        if (!ent) return null;
+                        return (
+                         <>
+                             <div className="p-3 border-b bg-gray-50 flex justify-between items-center sticky top-0"><h4 className="font-bold text-[#0D205C] flex items-center gap-2"><Grip size={16}/> {ent.label}</h4><button onClick={()=>{saveHistory(); setEntities(p=>p.filter(e=>e.id!==selectedId)); setInspectorOpen(false);}} className="text-red-500 bg-white border p-1.5 rounded"><Trash2 size={16}/></button></div>
+                             <div className="p-4 space-y-4 pb-10 md:pb-4">
+                                 {ent.params.hasOwnProperty('showGraph') && (
+                                     <div className="bg-indigo-50 p-2 rounded border border-indigo-100 space-y-2">
+                                         <div className="flex items-center justify-between">
+                                             <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs"><TrendingUp size={16}/> Hiện đồ thị</div>
+                                             <input type="checkbox" checked={ent.params.showGraph} onChange={(e)=>updateParam(ent.id, 'showGraph', e.target.checked)} className="accent-indigo-600"/>
                                          </div>
-                                     )}
-                                     {ent.params.hasOwnProperty('mode') && ( <div className="bg-blue-50 p-2 rounded-lg flex gap-2"><button onClick={()=>updateParam(ent.id, 'mode', 'param')} className={`flex-1 py-1 text-xs font-bold rounded ${ent.params.mode==='param'?'bg-white shadow text-blue-600':'text-gray-500'}`}>Tham số</button><button onClick={()=>updateParam(ent.id, 'mode', 'equation')} className={`flex-1 py-1 text-xs font-bold rounded ${ent.params.mode==='equation'?'bg-white shadow text-blue-600':'text-gray-500'}`}>Phương trình</button></div> )}
-                                     {Object.entries(ent.params).map(([k, v]) => {
-                                         if (['mode', 'showGraph', 'graphScale'].includes(k)) return null;
-                                         if (ent.params.mode === 'param' && k === 'eq') return null;
-                                         if (ent.params.mode === 'equation' && ['k','m','A','phi','l','alpha0','damping','f','v','loops','length'].includes(k)) return null;
-                                         return ( <div key={k} className="group"><div className="flex justify-between mb-1 items-center"><label className="text-xs font-bold text-gray-500 capitalize flex items-center gap-1">{k === 'eq' ? <Calculator size={12}/> : null} {k}</label>{typeof v === 'number' && (<input type="number" value={v} onChange={(e) => updateParam(ent.id, k, parseFloat(e.target.value))} className="w-16 text-right text-xs font-mono font-bold text-blue-600 bg-blue-50 px-1 rounded border-none outline-none focus:ring-1"/>)}</div>{k === 'eq' ? (<textarea value={v} onChange={(e)=>updateParam(ent.id, k, e.target.value)} className="w-full text-xs font-mono border rounded p-2 focus:ring-2 ring-blue-500 outline-none h-16" placeholder="VD: 2*cos(2*t - 0.5*r)"/>) : typeof v === 'number' ? (<input type="range" min={k==='k'?10:0} max={k==='k'?200:20} step={0.1} value={v} onChange={(e)=>updateParam(ent.id, k, parseFloat(e.target.value))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/>) : typeof v === 'boolean' ? (<input type="checkbox" checked={v} onChange={(e)=>updateParam(ent.id, k, e.target.checked)}/>) : null}</div> );
-                                     })}
-                                 </div>
-                             </>
-                            );
-                         })()
-                     ) : ( <div className="flex flex-col items-center justify-center h-48 text-gray-400"><Crosshair size={32} className="opacity-30 mb-2"/><p className="text-xs font-medium">Chọn vật thể</p></div> )}
+                                         {ent.params.showGraph && (
+                                             <div className="flex items-center gap-2 border-t border-indigo-200 pt-2">
+                                                 <Maximize2 size={12} className="text-indigo-500"/>
+                                                 <span className="text-[10px] text-indigo-600 font-bold">Kích thước:</span>
+                                                 <input type="range" min="1" max="3" step="0.1" value={ent.params.graphScale || 1} onChange={(e)=>updateParam(ent.id, 'graphScale', parseFloat(e.target.value))} className="flex-1 h-1 bg-indigo-200 rounded accent-indigo-600"/>
+                                                 <span className="text-[10px] font-mono w-4">{ent.params.graphScale || 1}x</span>
+                                             </div>
+                                         )}
+                                     </div>
+                                 )}
+                                 {ent.params.hasOwnProperty('mode') && ( <div className="bg-blue-50 p-2 rounded-lg flex gap-2"><button onClick={()=>updateParam(ent.id, 'mode', 'param')} className={`flex-1 py-1 text-xs font-bold rounded ${ent.params.mode==='param'?'bg-white shadow text-blue-600':'text-gray-500'}`}>Tham số</button><button onClick={()=>updateParam(ent.id, 'mode', 'equation')} className={`flex-1 py-1 text-xs font-bold rounded ${ent.params.mode==='equation'?'bg-white shadow text-blue-600':'text-gray-500'}`}>Phương trình</button></div> )}
+                                 {Object.entries(ent.params).map(([k, v]) => {
+                                     if (['mode', 'showGraph', 'graphScale'].includes(k)) return null;
+                                     if (ent.params.mode === 'param' && k === 'eq') return null;
+                                     if (ent.params.mode === 'equation' && ['k','m','A','phi','l','alpha0','damping','f','v','loops','length'].includes(k)) return null;
+                                     return ( <div key={k} className="group"><div className="flex justify-between mb-1 items-center"><label className="text-xs font-bold text-gray-500 capitalize flex items-center gap-1">{k === 'eq' ? <Calculator size={12}/> : null} {k}</label>{typeof v === 'number' && (<input type="number" value={v} onChange={(e) => updateParam(ent.id, k, parseFloat(e.target.value))} className="w-16 text-right text-xs font-mono font-bold text-blue-600 bg-blue-50 px-1 rounded border-none outline-none focus:ring-1"/>)}</div>{k === 'eq' ? (<textarea value={v} onChange={(e)=>updateParam(ent.id, k, e.target.value)} className="w-full text-xs font-mono border rounded p-2 focus:ring-2 ring-blue-500 outline-none h-16" placeholder="VD: 2*cos(2*t - 0.5*r)"/>) : typeof v === 'number' ? (<input type="range" min={k==='k'?10:0} max={k==='k'?200:20} step={0.1} value={v} onChange={(e)=>updateParam(ent.id, k, parseFloat(e.target.value))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/>) : typeof v === 'boolean' ? (<input type="checkbox" checked={v} onChange={(e)=>updateParam(ent.id, k, e.target.checked)}/>) : null}</div> );
+                                 })}
+                             </div>
+                         </>
+                        );
+                     })()}
                  </div>
              )}
          </div>
