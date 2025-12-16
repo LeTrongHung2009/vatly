@@ -12,121 +12,121 @@ const BOOKS_DATA = [
       id: 1,
       title: "Bài 1. Mô tả dao động",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 1.pdf" 
+      path: "/books/bai1.pdf" 
   },
   {
       id: 2,
       title: "Bài 2. Phương trình dao động điều hòa",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 2 .pdf" 
+      path: "/books/bai2.pdf" 
   },
   {
       id: 3,
       title: "Bài 3. Năng lượng trong dao động điều hòa",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 3.pdf" 
+      path: "/books/bai3.pdf" 
   },
   {
       id: 4,
       title: "Bài 4. Dao động tắt dần và hiện tượng cộng hưởng",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 4.pdf" 
+      path: "/books/bai4.pdf" 
   },
   {
       id: 5,
       title: "Bài 5. Sóng và sự truyền sóng",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Sóng_Bản_Chất_và_Phân_Loại.pdf" 
+      path: "/books/bai5.pdf" 
   },
   {
       id: 6,
       title: "Bài 6. Các đặc trưng vật lí của sóng",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 6.pdf" 
+      path: "/books/bai6.pdf" 
   },
   {
       id: 7,
       title: "Bài 7. Sóng điện từ",
-      description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 7 .pdf.pdf" 
+      description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo", 
+      path: "/books/bai7.pdf" 
   },
   {
       id: 8,
       title: "Bài 8. Giao thoa sóng",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 8.pdf" 
+      path: "/books/bai8.pdf" 
   },
   {
       id: 9,
       title: "Bài 9. Sóng dừng",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bài 9.pdf" 
+      path: "/books/bai9.pdf" 
   },
   {
       id: 10,
       title: "Bài 10. Thực hành đo tần số của sóng âm và tốc độ truyền âm",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Sóng_Âm_Đo_Lường_Và_Khám_Phá (1).pdf" 
+      path: "/books/bai10.pdf" 
   },
   {
       id: 11,
       title: "Bài 11. Định luật Coulomb về tương tác tĩnh điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Lực_Tĩnh_Điện_và_Định_Luật_Coulomb.pdf" 
+      path: "/books/bai11.pdf" 
   },
   {
       id: 12,
       title: "Bài 12. Điện trường",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Điện_Trường_Hé_Mở_Thế_Giới_Vô_Hình.pdf" 
+      path: "/books/bai12.pdf" 
   },
   {
       id: 13,
       title: "Bài 13. Điện thế và thế năng điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Điện_Thế_Thế_Năng.pdf" 
+      path: "/books/bai13.pdf" 
   },
   {
       id: 14,
       title: "Bài 14. Tụ điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Tụ Điện.pdf" 
+      path: "/books/bai14.pdf" 
   },
   {
       id: 15,
       title: "Bài 15. Năng lượng và ứng dụng của tụ điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Năng_Lượng_Tức_Thời_Sức_Mạnh_Tụ_Điện.pdf" 
+      path: "/books/bai15.pdf" 
   },
   {
       id: 16,
       title: "Bài 16. Dòng điện. Cường độ dòng điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Light_Speed_Electron_Speed.pdf" 
+      path: "/books/bai16.pdf" 
   },
   {
       id: 17,
       title: "Bài 17. Điện trở. Định luật Ohm",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Resistance_and_Ohm_s_Law.pdf" 
+      path: "/books/bai17.pdf" 
   },
   {
       id: 18,
       title: "Bài 18. Nguồn điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Nguồn_Điện_Và_Bộ_Nguồn.pdf" 
+      path: "/books/bai18.pdf" 
   },
   {
       id: 19,
       title: "Bài 19. Năng lượng điện. Công suất điện",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Năng_Lượng_Công_Suất_Điện.pdf" 
+      path: "/books/bai19.pdf" 
   },
   {
       id: 20,
       title: "Bài 20. Thực hành xác định suất điện động và điện trở trong của pin",
       description: "Sách giáo khoa vật lý lớp 11 - Chân trời sáng tạo",
-      path: "/books/Bí_Mật_Bên_Trong_Nguồn_Điện.pdf" 
+      path: "/books/bai20.pdf" 
   }
 ];
 

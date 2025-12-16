@@ -27,6 +27,7 @@ const LandingPage = ({ onNavigateToLab, onNavigateToStudy, onNavigateHome }) => 
             <h1 className="text-4xl md:text-6xl font-serif font-bold mb-6 leading-tight">
               Hệ thống Học liệu <br/>
             </h1>
+            <footer>@Coppyright| LTH </footer>
           </div>
 
           {/* Background Animation */}
